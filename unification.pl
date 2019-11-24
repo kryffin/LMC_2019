@@ -17,9 +17,9 @@ echo(_).
 
 :- op(20, xfy, ?=).
 
-*
-**
-*** utilitaires
+%
+%%
+%%% utilitaires
 
 %
 % reverse retourne une liste
@@ -70,11 +70,13 @@ regle(E, R) :-
 %%% X : variable à rechercher
 %%% T : terme dans lequel rechercher
 
-occur_check(X, X) :-
-	!.
+occur_check(V, T) :-
+    V == T,
+    !.
 
 occur_check(V, T) :-
-	functor(T, F , A),
+    nonvar(T),
+	functor(T, F, A),
 	A > 0,
 	arg(N, T, X),
 	occur_check(V, X),
@@ -95,27 +97,11 @@ rename(S, T) :-
 %
 % rename qui remplace les t variables par x
 %%% E : element de remplacement
-%%% [H|Q] : liste sur laquelle remplacer
-%%% L : liste du résultat
 
-rename(S, [], L) :- write(L).
-
-rename(E, [H|Q], L) :-
-    arg(1, E, ArgUn),
-    arg(2, E, ArgDeux),
-    arg(1, H, S),
-    arg(2, H, T),
-    T == ArgUn,
-    rename(E, Q, [?=(S, ArgDeux)|L]).
-
-rename(E, [H|Q], L) :-
-    arg(1, E, ArgUn),
-    arg(2, E, ArgDeux),
-    arg(1, H, S),
-    arg(2, H, T),
-    T \= ArgUn,
-    rename(E, Q, [?=(S, T)|L]),
-    !.
+rename(E) :-
+    arg(1, E, X),
+    agr(2, E, T),
+    X = T.
 
 %
 % simplify vérifie si S est renommable par T (ssi T est une constante)
@@ -128,27 +114,32 @@ simplify(S, T) :-
 %
 % simplify qui remplace les t constantes par x
 %%% E : element de remplacement
-%%% [H|Q] : liste sur laquelle remplacer
-%%% L : liste du résultat
 
-simplify(S, [], L) :- write(L).
+simplify(E) :-
+    arg(1, E, X),
+    arg(2, E, T),
+    X = T.
 
-simplify(E, [H|Q], L) :-
-    arg(1, E, ArgUn),
-    arg(2, E, ArgDeux),
-    arg(1, H, S),
-    arg(2, H, T),
-    T == ArgUn,
-    rename(E, Q, [?=(S, ArgDeux)|L]).
+%
+% expand vérifie si S est remplacable par T
+%%%
+%%%
 
-simplify(E, [H|Q], L) :-
-    arg(1, E, ArgUn),
-    arg(2, E, ArgDeux),
-    arg(1, H, S),
-    arg(2, H, T),
-    T \= ArgUn,
-    rename(E, Q, [?=(S, T)|L]),
+expand(S, T) :-
+    nonvar(T),
+    functor(T, A, N),
+    N > 0,
+    \+check(S, T),
     !.
+
+%
+% expand qui remplace les t composés par x
+%%% E : Equation de remplacement
+
+expand(E) :-
+    arg(1, E, X),
+    arg(2, E, T),
+    X = T.
 
 %
 % check appelle un occur_check sur S et T
