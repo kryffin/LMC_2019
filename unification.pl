@@ -164,14 +164,27 @@ orient(S, T) :-
 %%% Q : résultat (par unification)
 %%% N : indice
 
-decompose(S, T, Q, 1) :- !.
+decompose(S, T, Q, 1) :- write(Q), !.
 
 decompose(S, T, Q, N) :-
 	succ(M, N),
 	arg(M, S, Si),
 	arg(M, T, Ti),
-	L = [?=(Si, Ti)|Q],
-	decompose(S, T, L, M).
+	L = Q,
+	Q = [?=(Si, Ti)|L],
+	write(Q),
+	decompose(S, T, Q, M).
+
+decompose(S, T, Q) :-
+    Sliste =.. S,
+    Tliste =.. T,
+    depile(Q, V),
+    unif_liste().
+
+
+depile([_|Q], Q).
+depile([], []).
+
 
 %
 % test d un clash
@@ -182,3 +195,16 @@ clash(ArgGauche, ArgDroite) :-
 	functor(ArgGauche, F, AriteGauche),
 	functor(ArgDroite, F, AriteDroite),
 	AriteGauche == AriteDroite.
+
+
+reduit(decompose, E, P, Q) :-
+    arg(1, E, Eg),
+    arg(2, E, Ed),
+    arg(1, P, Pp),
+    functor(P, A, N),
+    succ(N, M),
+    decompose(Eg, Ed, Q, M).
+
+unifie([H|P]) :-
+    Q = [],
+    reduit(decompose, H, [H|P], Q).
