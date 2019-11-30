@@ -2,30 +2,99 @@
 %%
 %%% primitives d affichage
 
+%
+% set_echo active l affichage
+
 set_echo :-
-	assert(echo_on).
+    assert(echo_on).
+
+%
+% clr_echo desactive l affichage
+
+clr_echo :-
+    retractall(echo_on).
+
+%
+% echo affiche T si l affichage est active
 
 echo(T) :-
-	echo_on,
-	!,
-	write(T).
+    set_echo,
+    !,
+    write(T).
 
 echo(_).
 
 %
-% definition de l operateur ?= qui prend deux arguments de la forme x ?= y avec une priorité de 20
+% echo_trace affiche la trace d execution
 
+echo_trace(R, E, S) :-
+    echo('System : '),
+    echo(S), nl,
+	echo(R),
+	echo(' : '),
+	echo(E), nl.
+
+%
+% trace_unif unifie le programme en affichant une trace de l execution
+
+trace_unif(P, S) :-
+    set_echo,
+    unifie(P, S).
+
+%
+% unif unifie le programme en affichant aucune trace d execution
+
+unif(P, S) :-
+    clr_echo,
+    unifie(P, S).
+
+%
+% trace_unif appelle l unification avec ou non la trace (affichage des differentes etapes)
+
+trace_unif(P, S, o) :-
+    trace_unif(P, S).
+
+trace_unif(P, S, _) :-
+    unif(P, S).
+
+%
+% unifie demande si oui ou non l utilisateur veut une trace de l execution et unifie le programme
+
+unifie(P) :-
+    echo('Choix de la stratégie : '), nl,
+    echo('(1) choix_premier'), nl,
+    echo('(2) choix_pondéré'), nl,
+    read(InputStrategie),
+    (InputStrategie == 1 -> S = choix_premier;
+    InputStrategie == 2 -> S = choix_pondere;
+    S = premier),
+    echo('Stratégie choisie : '),
+    echo(S), nl,
+    echo('Afficher la trace d\'execution ? (o/n)'), nl,
+    read(InputAffichage), nl,
+    trace_unif(P, S, InputAffichage).
+
+%
+%%
+%%% operateur
+
+%
+% definition de l operateur ?= qui prend deux arguments de la forme x ?= y avec une priorite de 20
 :- op(20, xfy, ?=).
 
 %
 %%
-%%% utilitaires
+%%% primitives utilitaires
+
+%
+% pop supprime le premier element d une liste
+
+pop([_|Q], Q).
+
+pop([], []).
 
 %
 % reverse retourne une liste
-%%% [H|T] : liste à retourner
-%%% Z : liste retournée
-%%% Acc : liste intermédiaire
 
 reverse([],Z,Z).
 
@@ -33,178 +102,217 @@ reverse([H|T],Z,Acc) :-
     reverse(T,Z,[H|Acc]).
 
 %
-% suppr supprime un element E de la liste Q
-%%% E : element à supprimer
-%%% [H|Q] : liste d entrée
-%%% L : liste de sortie
+% remove supprime un element d une liste
 
-suppr(E, [], L) :-
-    reverse(L, Z, []),
-    write(L).
+remove(_, [], []).
 
-suppr(E, [H|Q], L) :-
-    E \= H,
-    suppr(E, Q, [H|L]),
-    !.
-
-suppr(E, [H|Q], L) :-
+remove(E, [H|Q], S) :-
     E == H,
-    suppr(E, Q, L).
+    remove(E, Q, S).
 
-%
-%%
-%%% règles logiques
-
-%
-% regle(E, R) qui indique si R est appliquable sur E
-%%% E : equation sur laquelle appliquer la règle
-%%% R : règle à appliquer
-
-regle(E, R) :-
-	arg(1, E, ArgGauche),
-	arg(2, E, ArgDroite),
-	call(R, ArgGauche, ArgDroite).
-
-%
-% occur check d une variable X sur un terme T
-%%% X : variable à rechercher
-%%% T : terme dans lequel rechercher
-
-occur_check(V, T) :-
-    V == T,
+remove(E, [H|Q], S) :-
+    E \== H,
+    append([H], V, S),
+    remove(E, Q, V),
     !.
 
-occur_check(V, T) :-
-    nonvar(T),
-	functor(T, F, A),
-	A > 0,
-	arg(N, T, X),
-	occur_check(V, X),
-	!.
+%
+% assemble sert a fusionner deux listes en mettant chacun de leur element sous l operateur ?=
+
+assemble([], [], []).
+
+assemble([H1|Q1], [H2|Q2], L) :-
+    append([H1 ?= H2], T, L),
+    assemble(Q1, Q2, T).
 
 %
 %%
-%%% règles Martelli-Montanari
+%%% primitives de logique
 
 %
-% rename vérifie si S est renommable par T (ssi T est une variable)
-%%% S : vecteur gauche
-%%% T : vecteur droit
+% occur_check vérifie si la variable S est présente dans T
 
-rename(S, T) :-
+occur_check(S, T) :-
+    var(S),
+    contains_var(S, T).
+
+%
+%%
+%%% primitives d application des regles de Martelli Montanari
+
+%
+% regle verifie ici si rename s applique a S ?= T
+
+regle(S ?= T, rename) :-
+    var(S),
     var(T).
 
 %
-% rename qui remplace les t variables par x
-%%% E : element de remplacement
+% regle verifie ici si simplify s applique a S ?= T
 
-rename(E) :-
-    arg(1, E, X),
-    agr(2, E, T),
-    X = T.
+regle(S ?= T, simplify) :-
+    var(S),
+    atom(T).
 
 %
-% simplify vérifie si S est renommable par T (ssi T est une constante)
-%%% S : vecteur gauche
-%%% T : vecteur droit
+% regle verifie ici si expand s applique a S ?= T
 
-simplify(S, T) :-
-    functor(T, T, 0).
-
-%
-% simplify qui remplace les t constantes par x
-%%% E : element de remplacement
-
-simplify(E) :-
-    arg(1, E, X),
-    arg(2, E, T),
-    X = T.
+regle(S ?= T, expand) :-
+    var(S),
+    compound(T),
+    \+(occur_check(S, T)).
 
 %
-% expand vérifie si S est remplacable par T
-%%%
-%%%
+% regle verifie ici si check s applique a S ?= T
 
-expand(S, T) :-
-    nonvar(T),
-    functor(T, A, N),
-    N > 0,
-    \+check(S, T),
-    !.
-
-%
-% expand qui remplace les t composés par x
-%%% E : Equation de remplacement
-
-expand(E) :-
-    arg(1, E, X),
-    arg(2, E, T),
-    X = T.
-
-%
-% check appelle un occur_check sur S et T
-%%% S : vecteur gauche
-%%% T : vecteur droite
-
-check(S, T) :-
+regle(S ?= T, check) :-
+    var(S),
     occur_check(S, T).
 
 %
-% reoriente une equation t ?= x en x ?= t si t est une variable
-%%% E : equation a reorienter
+% regle verifie ici si orient s applique a S ?= T
 
-orient(S, T) :-
-    var(T),
-    write(T ?= S).
-
-%
-% application de la regle de décomposition
-%%% S : vecteur de gauche
-%%% T : vecteur de droite
-%%% Q : résultat (par unification)
-%%% N : indice
-
-decompose(S, T, Q, 1) :- write(Q), !.
-
-decompose(S, T, Q, N) :-
-	succ(M, N),
-	arg(M, S, Si),
-	arg(M, T, Ti),
-	L = Q,
-	Q = [?=(Si, Ti)|L],
-	write(Q),
-	decompose(S, T, Q, M).
-
-decompose(S, T, Q) :-
-    Sliste =.. S,
-    Tliste =.. T,
-    depile(Q, V),
-    unif_liste().
-
-
-depile([_|Q], Q).
-depile([], []).
-
+regle(T ?= S, orient) :-
+    var(S),
+    nonvar(T).
 
 %
-% test d un clash
-%%% ArgGauche : vecteur de gauche
-%%% ArgDroite : vecteur de droite
+% regle verifie ici si decompose s applique a S ?= T
 
-clash(ArgGauche, ArgDroite) :-
-	functor(ArgGauche, F, AriteGauche),
-	functor(ArgDroite, F, AriteDroite),
-	AriteGauche == AriteDroite.
+regle(S ?= T, decompose) :-
+    nonvar(S),
+    nonvar(T),
+    functor(S, SName, SArity),
+    functor(T, TName, TArity),
+	SName == TName,
+	SArity =:= TArity.
 
+%
+% regle verifie ici si clash s applique a S ?= T
 
-reduit(decompose, E, P, Q) :-
-    arg(1, E, Eg),
-    arg(2, E, Ed),
-    arg(1, P, Pp),
-    functor(P, A, N),
-    succ(N, M),
-    decompose(Eg, Ed, Q, M).
+regle(S ?= T, clash) :-
+    nonvar(S);
+    nonvar(T),
+	functor(S, SName, SArity),
+	functor(T, TName, TArity),
+    (SName \== TName;
+    SArity =\= TArity),
+    !.
 
-unifie([H|P]) :-
-    Q = [],
-    reduit(decompose, H, [H|P], Q).
+%
+% reduction du programme P par la regle rename sur l equation S ?= T
+
+reduit(rename, S ?= T, P, Q) :-
+    remove(S ?= T, P, Q),
+    S = T.
+
+%
+% reduction du programme P par la regle simplify sur l equation S ?= T
+
+reduit(simplify, S ?= T, P, Q) :-
+    remove(S ?= T, P, Q),
+    S = T.
+
+%
+% reduction du programme P par la regle expand sur l equation S ?= T
+
+reduit(expand, S ?= T, P, Q) :-
+    remove(S ?= T, P, Q),
+    S = T.
+
+%
+% reduction du programme P quelconque par la regle check sur une equation quelconque
+
+reduit(check, _, _, []) :-
+    false.
+
+%
+% reduction du programme P par la regle orient sur l equation S ?= T
+
+reduit(orient, T ?= S, P, Q) :-
+    remove(T ?= S, P, Q2),
+    append([S ?= T], Q2, Q).
+
+%
+% reduction du programme P par la regle decompose sur l equation S ?= T
+
+reduit(decompose, S ?= T, P, Q) :-
+    S =.. SList,
+    T =.. TList,
+	pop(SList, SPopped),
+	pop(TList, TPopped),
+    assemble(SPopped, TPopped, L),
+    remove(S ?= T, P, V),
+    append(L, V, Q).
+
+%
+% reduction du programme P quelconque par la regle clash sur une equation quelconque
+
+reduit(clash, _, _, []) :-
+    false.
+
+%
+%%
+%%% primitives de strategies
+
+%
+% unifie applique les regles de Martelli Montanari sur le programme P en utilisant une strategie
+
+unifie([], _).
+
+unifie(P, S) :-
+    choix(S, P, E, R),
+    echo_trace(R, E, P),
+    reduit(R, E, P, Q),
+    unifie(Q, S),
+    !.
+
+%
+% choix differentie les differents choix de strategie
+
+choix(choix_premier, P, E, R) :-
+    choix_premier(P, E, R).
+
+choix(choix_pondere, P, E, R) :-
+    choix_pondere(P, E, R).
+
+%
+% liste des choix ponderee
+
+poids([check, rename, simplify, orient, decompose, expand, clash]).
+
+%
+% appliquer trouve une equation sur laquelle appliquer une regle et l appliquer
+
+appliquer(_, [], _, _) :-
+    false.
+
+appliquer(X, [_|Q], E, R) :-
+    appliquer(X, Q, E, R).
+
+appliquer([R|_], [E|_], E, R) :-
+    regle(E, R).
+
+%
+% choisir_regle trouve une regle a appliquer
+
+choisir_regle(X, P, E, R) :-
+    appliquer(X, P, E, R).
+
+choisir_regle([_|Q], P, E, R) :-
+    choisir_regle(Q, P, E, R).
+
+%
+% choix_premier applique une regle a la premiere equation
+
+choix_premier([E|_], E, R) :-
+    regle(E, R),
+    !.
+
+%
+% choix_pondere applique une regle a une equation par rapport au poids de chaque regle
+
+choix_pondere(P, E, R) :-
+    poids(X),
+    choisir_regle(X, P, E, R),
+    !.
