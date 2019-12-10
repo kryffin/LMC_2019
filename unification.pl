@@ -27,9 +27,9 @@ echo(_).
 %
 % echo_trace affiche la trace d execution
 
-echo_trace(R, E, S) :-
+echo_trace(R, E, P) :-
     echo('System : '),
-    echo(S), nl,
+    echo(P), nl,
 	echo(R),
 	echo(' : '),
 	echo(E), nl.
