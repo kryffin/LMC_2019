@@ -134,6 +134,7 @@ assemble([H1|Q1], [H2|Q2], L) :-
 
 occur_check(S, T) :-
     var(S),
+    S \== T,
     contains_var(S, T).
 
 %
